@@ -12,10 +12,6 @@ export class TasksService {
     @InjectRepository(TaskRepository) private tasksRepository: TaskRepository,
   ) {}
 
-  async getAllTasks(): Promise<Task[]> {
-    return await this.tasksRepository.find();
-  }
-
   async getTaskById(id: string): Promise<Task> {
     const found = await this.tasksRepository.findOneBy({ id });
     if (!found) {
@@ -28,35 +24,21 @@ export class TasksService {
     return this.tasksRepository.createTask(createTaskDto);
   }
 
-  async getTasksWithFilters(filterDto: GetTasksFilterDto): Promise<Task[]> {
-    const { status, search } = filterDto;
-    let tasks = await this.getAllTasks();
-    if (status) {
-      tasks = tasks.filter((task) => task.status === status);
-    }
-    if (search) {
-      tasks = tasks.filter((task) => {
-        if (task.title.includes(search) || task.description.includes(search)) {
-          return true;
-        }
-        return false;
-      });
-    }
-    return tasks;
+  async getTasks(filterDto: GetTasksFilterDto): Promise<Task[]> {
+    return this.tasksRepository.getTasks(filterDto);
   }
 
   async deleteTaskById(id: string): Promise<void> {
-    const found = await this.getTaskById(id);
-    await this.tasksRepository.delete(found.id);
+    const result = await this.tasksRepository.delete(id);
+    if (result.affected === 0) {
+      throw new NotFoundException(`Task with ID ${id} not found`);
+    }
   }
 
   async updateTaskStatus(id: string, status: TaskStatus): Promise<Task> {
     const task = await this.getTaskById(id);
-    await this.tasksRepository.update(task.id, {
-      ...task,
-      status,
-    });
-    const updatedTask = await this.getTaskById(id);
-    return updatedTask;
+    task.status = status;
+    this.tasksRepository.save(task);
+    return task;
   }
 }
